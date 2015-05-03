@@ -11,9 +11,9 @@
  */
 namespace Yandex\OAuth;
 
-use Guzzle\Http\Client;
-use Guzzle\Http\Exception\ClientErrorResponseException;
-use Guzzle\Http\Exception\RequestException;
+use GuzzleHttp\Client;
+use GuzzleHttp\Exception\ClientException;
+use GuzzleHttp\Exception\RequestException;
 use Yandex\OAuth\Exception\AuthRequestException;
 use Yandex\OAuth\Exception\AuthResponseException;
 
@@ -251,26 +251,32 @@ class OAuthClient
      */
     public function requestAccessToken($code)
     {
-        $client = new Client($this->getServiceUrl());
+        $client = new Client(
+            [
+                'base_url' => [$this->getServiceUrl(), []],
+            ]
+        );
 
-        $request = $client->post(
-            'token', // to relative path "/token"
-            null, // with no headers
-            array(
+        $request = $client->createRequest('POST', 'token', [
+            'body' => [
                 'grant_type'    => 'authorization_code',
                 'code'          => $code,
                 'client_id'     => $this->clientId,
                 'client_secret' => $this->clientSecret
-            )
-        );
+            ]
+        ]);
 
         try {
 
-            $response = $request->send();
+            $response = $client->send($request);
 
-        } catch (ClientErrorResponseException $ex) {
-
-            $result = $request->getResponse()->json();
+        }
+        catch (RequestException $ex) {
+            if (!$ex->hasResponse())
+            {
+                throw new AuthRequestException('Service responsed with error "' . $ex->getMessage() . '".', 0, $ex);
+            }
+            $result = $ex->getResponse()->json();
 
             if (is_array($result) && isset($result['error'])) {
                 // handle a service error message
