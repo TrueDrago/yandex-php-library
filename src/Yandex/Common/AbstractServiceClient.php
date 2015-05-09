@@ -11,10 +11,11 @@
  */
 namespace Yandex\Common;
 
-use Guzzle\Http\Exception\ClientErrorResponseException;
-use Guzzle\Http\Message\Request;
-use Guzzle\Http\Message\RequestInterface;
-use Guzzle\Http\Message\Response;
+use GuzzleHttp\Client;
+use GuzzleHttp\Exception\RequestException;
+use GuzzleHttp\Message\RequestInterface;
+use GuzzleHttp\Message\Response;
+use Yandex\Common\Exception\FailedRequestException;
 use Yandex\Common\Exception\MissedArgumentException;
 use Yandex\Common\Exception\ProfileNotFoundException;
 use Yandex\Common\Exception\YandexException;
@@ -65,6 +66,8 @@ abstract class AbstractServiceClient extends AbstractPackage
      * @var string
      */
     protected $libraryName = 'yandex-php-library';
+
+    private $client;
 
     /**
      * @return string
@@ -176,12 +179,11 @@ abstract class AbstractServiceClient extends AbstractPackage
     /**
      * prepareRequest
      *
-     * @param \Guzzle\Http\Message\RequestInterface $request
+     * @param RequestInterface $request
      * @return RequestInterface
      */
     protected function prepareRequest(RequestInterface $request)
     {
-        $request->setProtocolVersion($this->serviceProtocolVersion);
         $request->setHeader('Authorization', 'OAuth ' . $this->getAccessToken());
         $request->setHeader('Host', $this->getServiceDomain());
         $request->setHeader('User-Agent', $this->getUserAgent());
@@ -192,7 +194,7 @@ abstract class AbstractServiceClient extends AbstractPackage
     /**
      * Sends a request
      *
-     * @param \Guzzle\Http\Message\Request|\Guzzle\Http\Message\RequestInterface $request
+     * @param RequestInterface $request
      *
      * @throws Exception\MissedArgumentException
      * @throws Exception\ProfileNotFoundException
@@ -203,10 +205,14 @@ abstract class AbstractServiceClient extends AbstractPackage
     {
         try {
             $request = $this->prepareRequest($request);
-            $response = $request->send();
-        } catch (ClientErrorResponseException $ex) {
+            $response = $this->getClient()->send($request);
+        } catch (RequestException $ex) {
             // get error from response
-            $result = $request->getResponse()->json();
+            if (!$ex->hasResponse())
+            {
+                throw new FailedRequestException('Service responded with error "' . $ex->getMessage() . '".', 0, $ex);
+            }
+            $result = $ex->getResponse()->json();
 
             // handle a service error message
             if (is_array($result) && isset($result['error'], $result['message'])) {
@@ -225,5 +231,20 @@ abstract class AbstractServiceClient extends AbstractPackage
         }
 
         return $response;
+    }
+
+    /**
+     * @return Client
+     */
+    protected function getClient()
+    {
+        if (!$this->client) {
+            $this->client = new Client(
+                [
+                    'base_url' => [$this->getServiceUrl(), []],
+                ]
+            );
+        }
+        return $this->client;
     }
 }

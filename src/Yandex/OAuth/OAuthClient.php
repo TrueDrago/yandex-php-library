@@ -274,7 +274,7 @@ class OAuthClient
         catch (RequestException $ex) {
             if (!$ex->hasResponse())
             {
-                throw new AuthRequestException('Service responsed with error "' . $ex->getMessage() . '".', 0, $ex);
+                throw new AuthRequestException('Service responded with error "' . $ex->getMessage() . '".', 0, $ex);
             }
             $result = $ex->getResponse()->json();
 
