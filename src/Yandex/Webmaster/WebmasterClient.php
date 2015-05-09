@@ -150,6 +150,13 @@ class WebmasterClient extends AbstractServiceClient
         return $this->host;
     }
 
+    /**
+     * @param string $content
+     * @return OriginalText
+     * @throws FailedRequestException
+     * @throws InvalidHostException
+     * @throws YandexException
+     */
     public function addOriginalText($content)
     {
         $text = new OriginalText($content);
@@ -162,6 +169,24 @@ class WebmasterClient extends AbstractServiceClient
         $response = $this->sendRequest($request);
 
         return $this->getSerializer()->deserialize($response->getBody(), OriginalText::class, 'xml');
+    }
+
+    /**
+     * @param $id
+     * @return bool
+     * @throws FailedRequestException
+     * @throws InvalidHostException
+     * @throws YandexException
+     */
+    public function removeOriginalText($id)
+    {
+        $request = $this->getClient()->createRequest(
+            'DELETE',
+            sprintf('hosts/%d/original-texts/%s', $this->getHost(), $id)
+        );
+        $response = $this->sendRequest($request);
+
+        return in_array($response->getStatusCode(), ['204', '404']);
     }
 
     /**
